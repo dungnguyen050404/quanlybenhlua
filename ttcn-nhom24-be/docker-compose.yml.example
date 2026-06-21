@@ -1,0 +1,85 @@
+services:
+  ## Database postgerSQL 
+  postgres:
+    image: postgres:15
+    container_name: ${DOCKER_POSTGRES_CONTAINER}
+    restart: always
+    ports:
+      - "${DOCKER_POSTGRES_PORT}:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DOCKER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DOCKER_POSTGRES_DB}
+
+  ## Hasura
+  graphql-engine:
+    image: hasura/graphql-engine:v2.42.0
+    container_name: ${DOCKER_HASURA_CONTAINER}
+    ports:
+      - "${DOCKER_HASURA_PORT}:8080"
+    restart: always
+    environment:
+      ## postgres database to store Hasura metadata
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://${DOCKER_POSTGRES_USER}:${DOCKER_POSTGRES_PASSWORD}@${DOCKER_POSTGRES_CONTAINER}:5432/${DOCKER_POSTGRES_DB}
+      ## this env var can be used to add the above postgres database to Hasura as a data source. this can be removed/updated based on your needs
+      PG_DATABASE_URL: postgres://${DOCKER_POSTGRES_USER}:${DOCKER_POSTGRES_PASSWORD}@${DOCKER_POSTGRES_CONTAINER}:5432/${DOCKER_POSTGRES_DB}
+      ## enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      ## enable debugging mode. It is recommended to disable this in production
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      ## uncomment next line to run console offline (i.e load console assets from server instead of CDN)
+      # HASURA_GRAPHQL_CONSOLE_ASSETS_DIR: /srv/console-assets
+      ## uncomment next line to set an admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: ${DOCKER_HASURA_GRAPHQL_ADMIN_SECRET}
+      HASURA_GRAPHQL_METADATA_DEFAULTS: '{"backend_configs":{"dataconnector":{"athena":{"uri":"http://data-connector-agent:8081/api/v1/athena"},"mariadb":{"uri":"http://data-connector-agent:8081/api/v1/mariadb"},"mysql8":{"uri":"http://data-connector-agent:8081/api/v1/mysql"},"oracle":{"uri":"http://data-connector-agent:8081/api/v1/oracle"},"snowflake":{"uri":"http://data-connector-agent:8081/api/v1/snowflake"}}}}'
+    depends_on:
+      data-connector-agent:
+        condition: service_healthy
+
+  data-connector-agent:
+    image: hasura/graphql-data-connector:v2.42.0
+    container_name: ${DOCKER_DATA_CONNECTOR_CONTAINER}
+    restart: always
+    ports:
+      - "${DOCKER_DATA_CONNECTOR_PORT}:8081"
+    environment:
+      QUARKUS_LOG_LEVEL: ERROR # FATAL, ERROR, WARN, INFO, DEBUG, TRACE
+      ## https://quarkus.io/guides/opentelemetry#configuration-reference
+      QUARKUS_OPENTELEMETRY_ENABLED: "false"
+      ## QUARKUS_OPENTELEMETRY_TRACER_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/v1/athena/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
+
+  ## Database redis
+  redis:
+    image: redis:latest
+    container_name: ${DOCKER_REDIS_CONTAINER}
+    ports:
+      - "${DOCKER_REDIS_PORT}:6379"
+    command: [
+        "redis-server",
+        "--requirepass",
+        "${DOCKER_REDIS_PASSWORD}",  # Mật khẩu cần thiết để truy cập Redis
+        "--protected-mode",
+        "yes",  # Bật chế độ bảo vệ để tránh truy cập không an toàn
+        "--appendonly",
+        "yes",  # Bật chế độ ghi dữ liệu vào file AOF (Append-Only File)
+        "--save",
+        "60",
+        "1",  # Lưu lại dữ liệu Redis mỗi khi có ít nhất 1 thay đổi trong 60 giây
+      ]
+    volumes:
+      - redis_data:/data  # Mount volume để lưu trữ dữ liệu Redis ngoài container
+    restart: always
+
+volumes:
+  postgresql_data:
+  redis_data:
+    driver: local

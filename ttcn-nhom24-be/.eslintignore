@@ -1,0 +1,13 @@
+# Ignore node modules and build output
+node_modules/
+dist/
+
+# Ignore env and config files (nếu không cần lint)
+.env
+*.config.js
+*.config.cjs
+*.config.ts
+
+# Ignore migrations or generated code (nếu có)
+migrations/
+generated/

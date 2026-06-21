@@ -1,0 +1,20 @@
+# Thư viện và file build
+node_modules/
+dist/
+coverage/
+
+# File môi trường và lock file
+.env
+*.lock
+
+# Tệp cấu hình hoặc code gen không cần format
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+*.config.js
+*.config.cjs
+*.config.ts
+
+# Generated or external code
+migrations/
+generated/

@@ -1,0 +1,10 @@
+{
+  "apps": [
+    {
+      "name": "[process-center]cdn-uploader",
+      "script": "yarn",
+      "args" : "start:prod",
+      "interpreter": "/bin/bash"
+    }
+  ]
+}
